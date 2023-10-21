@@ -2,6 +2,7 @@ FROM public.ecr.aws/lambda/python:3.11
 
 ARG MODEL_NAME
 ENV MODEL_NAME=$MODEL_NAME
+ENV TRANSFORMERS_OFFLINE=1
 
 # Copy requirements.txt
 COPY requirements.txt ${LAMBDA_TASK_ROOT}

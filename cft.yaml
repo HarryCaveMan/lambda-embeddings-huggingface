@@ -35,6 +35,25 @@ Resources:
       Code:
         ImageUri: !Ref ImageUri
 
+  KeepWarmInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt Function.Arn
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt KeepWarm.Arn
+
+  KeepWarm:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: Keep warm for lambda function
+      Name: sentence-embeddings-keepwarm
+      ScheduleExpression: rate(4 minutes)
+      Targets: 
+        - Arn: !GetAtt Function.Arn
+          Id: SentenceEmbeddingsKeepWarm
+          Input: '{"crid":1,"sentences":["This event spits hot fire to keep the function warm"]}'
+
   ApiGateWayInvokePermission:
     Type: AWS::Lambda::Permission
     Properties:
