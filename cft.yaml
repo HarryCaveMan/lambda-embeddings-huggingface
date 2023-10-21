@@ -1,0 +1,52 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Lambda Embedding service
+
+Parameters:
+  ImageUri:
+    Type: String
+    Description: URI of service image
+
+Resources:
+  
+  Role:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+              - lambda.amazonaws.com
+          Action:
+            - 'sts:AssumeRole'
+      Path: /lambda/execution/sentence-embeddings/
+      ManagedPolicyArns:
+        - !Sub 'arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'
+
+  Function:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: sentence-embeddings
+      Role: !Sub '${Role.Arn}'
+      PackageType: Image
+      MemorySize: 4096
+      Timeout: 30
+      Code:
+        ImageUri: !Ref ImageUri
+
+  ApiGateWayInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: 'lambda:InvokeFunction'
+      FunctionName: !Sub ${Function.Arn}
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${HttpApi}/*'
+
+  HttpApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: Lambda Proxy
+      Description: Lambda proxy using quick create
+      ProtocolType: HTTP
+      Target: !Sub '${Function.Arn}'
