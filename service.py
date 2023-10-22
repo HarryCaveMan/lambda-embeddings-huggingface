@@ -35,11 +35,19 @@ class EncoderService(metaclass=Singleton):
         # call pooling/norm method and return the normalized sentence embeddings
         return self.get_normalized_sentence_embeddings(token_embeddings,encoded_input["attention_mask"])
 
-def handler(event: Dict[str,Any],context: Any) -> Dict[str,Union[int,List[str]]]:
+def handler(event: Dict[str,Any],context: Any) -> Dict[str,Union[str,int]]:
     req_json: Dict[str,Union[int,List[str]]] = from_json(event["body"])
+    crid: int = req_json["crid"]
+    print(f"Received request, crid: {crid}")
     service: EncoderService = EncoderService(MODEL_PATH)
     sentences: List[str] = req_json["sentences"]
-    return {
-        "crid":req_json["crid"],
+    response_json: Dict[str,Union[str,List[float]]] = {
+        "crid":crid,
         "sentence_embeddings":service.encode(sentences)
+    }
+    print(f"Request {crid} complete")
+    return {
+        "headers":{"Content-type":"application/json"},
+        "statusCode":200,
+        "body":to_json(response_json)
     }

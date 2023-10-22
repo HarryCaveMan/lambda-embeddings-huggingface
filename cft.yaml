@@ -52,7 +52,7 @@ Resources:
       Targets: 
         - Arn: !GetAtt Function.Arn
           Id: SentenceEmbeddingsKeepWarm
-          Input: '{"crid":1,"sentences":["This event spits hot fire to keep the function warm"]}'
+          Input: '{"crid":1,"sentences":["This event spits hot fire to keep the function warm!"]}'
 
   ApiGateWayInvokePermission:
     Type: AWS::Lambda::Permission
@@ -60,12 +60,42 @@ Resources:
       Action: 'lambda:InvokeFunction'
       FunctionName: !Sub ${Function.Arn}
       Principal: apigateway.amazonaws.com
-      SourceArn: !Sub 'arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${HttpApi}/*'
+      SourceArn: !Sub 'arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApi}/*'
 
-  HttpApi:
-    Type: AWS::ApiGatewayV2::Api
+  RestApi:
+    Type: "AWS::ApiGateway::RestApi"
     Properties:
-      Name: Lambda Proxy
-      Description: Lambda proxy using quick create
-      ProtocolType: HTTP
-      Target: !Sub '${Function.Arn}'
+      Name: "sentence-embeddings-gateway"
+      Description: "Sentence Embeddings API"
+
+  ProxyResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      ParentId: !GetAtt RestApi.RootResourceId
+      RestApiId: !Ref RestApi
+      PathPart: 'encode'
+
+  ProxyMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      AuthorizationType: NONE
+      ApiKeyRequired: true
+      HttpMethod: ANY
+      Integration:
+        IntegrationHttpMethod: POST
+        Type: AWS_PROXY
+        IntegrationResponses:
+          - StatusCode: 200
+        Uri: !Sub
+          - arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${lambdaArn}/invocations
+          - lambdaArn: !GetAtt Function.Arn
+      ResourceId: !Ref ProxyResource
+      RestApiId: !Ref RestApi
+
+  ApiDeployment:
+    Type: "AWS::ApiGateway::Deployment"
+    DependsOn:
+      - ProxyMethod
+    Properties:
+      RestApiId: !Ref RestApi
+      StageName: api
