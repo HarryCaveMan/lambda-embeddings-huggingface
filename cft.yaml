@@ -1,4 +1,4 @@
-AWSTemplateFormatVersion: "2010-09-09"
+AWSTemplateFormatVersion: '2010-09-09'
 Description: Lambda Embedding service
 
 Parameters:
@@ -19,16 +19,16 @@ Resources:
             Service:
               - lambda.amazonaws.com
           Action:
-            - 'sts:AssumeRole'
+            - sts:AssumeRole
       Path: /lambda/execution/sentence-embeddings/
       ManagedPolicyArns:
-        - !Sub 'arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'
+        - !Sub arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
 
   Function:
     Type: AWS::Lambda::Function
     Properties:
       FunctionName: sentence-embeddings
-      Role: !Sub '${Role.Arn}'
+      Role: !GetAtt Role.Arn
       PackageType: Image
       MemorySize: 4096
       Timeout: 30
@@ -57,23 +57,23 @@ Resources:
   ApiGateWayInvokePermission:
     Type: AWS::Lambda::Permission
     Properties:
-      Action: 'lambda:InvokeFunction'
+      Action: lambda:InvokeFunction
       FunctionName: !Sub ${Function.Arn}
       Principal: apigateway.amazonaws.com
       SourceArn: !Sub 'arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApi}/*'
 
   RestApi:
-    Type: "AWS::ApiGateway::RestApi"
+    Type: AWS::ApiGateway::RestApi
     Properties:
-      Name: "sentence-embeddings-gateway"
-      Description: "Sentence Embeddings API"
+      Name: sentence-embeddings-gateway
+      Description: Sentence Embeddings API
 
   ProxyResource:
     Type: AWS::ApiGateway::Resource
     Properties:
       ParentId: !GetAtt RestApi.RootResourceId
       RestApiId: !Ref RestApi
-      PathPart: 'encode'
+      PathPart: encode
 
   ProxyMethod:
     Type: AWS::ApiGateway::Method
@@ -93,7 +93,7 @@ Resources:
       RestApiId: !Ref RestApi
 
   ApiDeployment:
-    Type: "AWS::ApiGateway::Deployment"
+    Type: AWS::ApiGateway::Deployment
     DependsOn:
       - ProxyMethod
     Properties:
