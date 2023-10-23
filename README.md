@@ -1,5 +1,5 @@
 # Sentence Embeddings Lambda
-Generic implementation of HuggingFace BERT sentence embeddings for AWS lambda
+Generic implementation of HuggingFace BERT sentence embeddings for AWS lambda. Uses ECR Image runtime with model and torch/transformers installed int othe image.
 
 ## Features
 - Currently API key authentication is always on. You will need to run the `create_usage_plan.py` script to create a usage plan for your API after it is deployed or you will only see 403 responses
