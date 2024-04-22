@@ -1,7 +1,9 @@
 from transformers import AutoTokenizer, AutoModel
+from onnxruntime import InferenceSession, SessionOptions, ExecutionMode, GraphOptimizationLevel
 import torch
 import torch.nn.functional as F
 from os import environ as env
+from os import sched_getaffinity as ls_cpu
 from typing import List,Dict,Union,Any
 from json import loads as from_json
 from json import dumps as to_json
@@ -9,6 +11,10 @@ from json import dumps as to_json
 LAMBDA_TASK_ROOT=env.get("LAMBDA_TASK_ROOT")
 MODEL_NAME=env.get("MODEL_NAME")
 MODEL_PATH=f"{LAMBDA_TASK_ROOT}/{MODEL_NAME}"
+env["OMP_NUM_THREADS"] = str(len(ls_cpu(0)))
+env["OMP_WAIT_POLICY"] = 'ACTIVE'
+
+print(f"{len(ls_cpu(0))} CPUs available for OpenMP")
 
 class Singleton(type):
     _instance = None
@@ -19,7 +25,13 @@ class Singleton(type):
 
 class EncoderService(metaclass=Singleton):
     def __init__(self,model_path: str) -> None:
-        self.model = AutoModel.from_pretrained(model_path)
+        opts = SessionOptions()
+        opts.graph_optimization_level = GraphOptimizationLevel.ORT_ENABLE_ALL
+        opts.execution_mode = ExecutionMode.ORT_PARALLEL
+        opts.intra_op_num_threads = int(env["OMP_NUM_THREADS"])
+        opts.inter_op_num_threads = int(env["OMP_NUM_THREADS"])
+        self.onnx = InferenceSession(f"{model_path}/model_onnx.bin", providers=["CPUExecutionProvider"],sess_options=opts)
+        # self.model = AutoModel.from_pretrained(model_path)
         self.tokenizer = AutoTokenizer.from_pretrained(model_path)
     #Mean Pooling and normalization - Take attention mask into account for correct averaging
     def get_normalized_sentence_embeddings(self,token_embeddings,attention_mask):
@@ -29,9 +41,11 @@ class EncoderService(metaclass=Singleton):
     #Get embedding vectors for list of sentences
     def encode(self,sentences:List[str]) -> List[float]:
         encoded_input = self.tokenizer(sentences,padding=True,truncation=True,return_tensors="pt")
+        onnx_input = {k: v.cpu().detach().numpy() for k, v in encoded_input.items()}
         # Compute token embeddings
-        with torch.no_grad():
-            token_embeddings = self.model(**encoded_input)[0]
+        # with torch.no_grad():
+        #     token_embeddings = self.model(**encoded_input)[0]
+        token_embeddings = torch.from_numpy(self.onnx.run(None,onnx_input)[0])
         # call pooling/norm method and return the normalized sentence embeddings
         return self.get_normalized_sentence_embeddings(token_embeddings,encoded_input["attention_mask"])
 
